@@ -1,0 +1,24 @@
+电脑端：
+在跑 tauri dev 的终端按 Ctrl+C 停止
+重新运行：
+$env:TAURI_DEV_HOST = "0.0.0.0"
+npm run tauri dev
+手机端测试：
+http://192.168.1.228:1420/index-mobile.html?ws=ws://192.168.1.228:46267
+
+cd d:\TraeWorkProjects\6aa26d20e903c47897186bfb\markeron
+$env:TAURI_DEV_HOST = "0.0.0.0"
+npm run tauri dev
+
+讨论，不改代码：现在手机端标注的时候，是先发送到桌面端渲染，然后再回传到手机端渲染，这样会导致手机上显示的笔迹稍有滞后，没有跟手的感觉。能否改成：在手机上标注就以手机优先，即在手机上标注的笔迹实时显示，同时发送到桌面端渲染，这样就能尽可能缩短手机端的笔迹显示时间。
+你觉得这有可行性吗？对现有代码的逻辑改动大不大？你对此有什么更好的建议？
+
+1、手机版的标注笔迹采用"乐观渲染 + 权威修正"模式后，尽管解决了笔迹跟手的问题，但出现了画笔始终为红色，即使选其他颜色也会自动恢复成红色的bug。
+2、取消markeron首次启动时自动弹出二维码的功能。
+3、手机版顶端栏的高度尽量紧凑一些，可考虑把顶端栏元素的css中的上下间隙设置为0。
+
+3、将markeron的桌面端打包发布成本地正式版（不会出现），以单文件便携版（不用自解压）的形式即可。
+
+4、手机app中直接扫码连接，可参考本地项目："D:\TraeWorkProjects\我的项目\教学弹幕\student.html"以及“D:\TraeWorkProjects\我的项目\教学弹幕\src-tauri-student”中的扫码连接代码以及capacitor设置。
+
+手机端app同样无法访问摄像头：NotallowedError:Permission denied(可能需要https访问)
