@@ -410,7 +410,7 @@ syncHandle.onRemoteIntent((intent) => {
   }
 })
 
-// 远端命令（切换标注/穿透/白板）→ 桌面端执行
+// 远端命令（切换标注/穿透/白板/截屏）→ 桌面端执行
 syncHandle.onRemoteCommand(async (cmd) => {
   try {
     console.log('[DrawingOverlay] remote command received:', cmd)
@@ -424,6 +424,11 @@ syncHandle.onRemoteCommand(async (cmd) => {
       console.log('[DrawingOverlay] toggle_penetration_mode resolved:', res)
     } else if (cmd === 'toggle-whiteboard') {
       await toggleWhiteboardFromToolbar()
+    } else if (cmd === 'capture-screen') {
+      // 手机端请求截屏：调用 Tauri capture_screen（Rust 端会临时隐藏
+      // overlay + toolbar 窗口再截取，返回 JPEG data URL）
+      const dataUrl = await invoke<string>('capture_screen')
+      syncHandle.pushScreenShot(dataUrl)
     }
   } catch (e) {
     console.error('[DrawingOverlay] remote command failed', e)
@@ -677,6 +682,13 @@ async function enterWhiteboardMode(options?: { fromDefaultEntry?: boolean }) {
   textBoxPos.value = null
   void syncWhiteboardMode(true)
   currentTool.value = 'pen'
+  // 推送白板状态给手机端，让 MobileMirror 显示白色背景
+  syncHandle.pushToolState({
+    currentTool: currentTool.value,
+    currentColor: currentColor.value,
+    lineWidth: lineWidth.value,
+    whiteboardMode: true,
+  })
   logSessionEvent('whiteboard entered', {
     fromDefaultEntry: options?.fromDefaultEntry ?? false,
   })
@@ -693,6 +705,13 @@ function exitWhiteboardMode() {
     hardReset()
     logActionEvent('canvas hard reset', { reason: 'whiteboard-exit' })
   }
+  // 推送退出白板状态，让 MobileMirror 清空白色背景
+  syncHandle.pushToolState({
+    currentTool: currentTool.value,
+    currentColor: currentColor.value,
+    lineWidth: lineWidth.value,
+    whiteboardMode: false,
+  })
   logSessionEvent('whiteboard exited')
   showTip(t('overlay.whiteboardExit'))
 }

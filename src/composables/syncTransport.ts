@@ -36,6 +36,8 @@ export type SyncMessage =
   | { type: 'toggle-drawing' }
   | { type: 'toggle-penetration' }
   | { type: 'toggle-whiteboard' }
+  | { type: 'capture-screen' }
+  | { type: 'screen-shot'; dataUrl: string }
   | { type: 'ping' }
   | { type: 'pong' }
 

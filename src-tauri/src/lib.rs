@@ -222,6 +222,7 @@ pub fn run() {
             diagnostics::append_diagnostic_event,
             clipboard::copy_screen,
             clipboard::copy_whiteboard,
+            clipboard::capture_screen,
             sync_server::start_sync_server,
             sync_server::stop_sync_server,
         ])

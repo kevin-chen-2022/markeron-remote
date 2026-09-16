@@ -1,175 +1,150 @@
 <div align="center">
-  <img src=".github/assets/icon.png" width="80" height="80" alt="MarkerOn icon" />
-  <h1>MarkerOn</h1>
+  <h1>MarkerOn Remote</h1>
+  <p><strong>桌面标注 + 手机远程控制</strong> — 在电脑屏幕上标注，用手机远程落笔、截图、同步白板。</p>
   <p>
-    <a href="./README_zh.md">中文</a>
-  </p>
-  <p>
-    <a href="https://github.com/ifer47/markeron/actions/workflows/ci.yml"><img src="https://github.com/ifer47/markeron/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
-    <a href="https://github.com/ifer47/markeron/releases/latest"><img src="https://img.shields.io/github/v/tag/ifer47/markeron?label=latest&color=blue" alt="Release" /></a>
-    <a href="https://github.com/ifer47/markeron/releases"><img src="https://img.shields.io/github/downloads/ifer47/markeron/total" alt="Downloads" /></a>
     <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="License" /></a>
-    <a href="https://github.com/ifer47/markeron/stargazers"><img src="https://img.shields.io/github/stars/ifer47/markeron?style=social" alt="Stars" /></a>
-    <a href="https://markeron.cn/"><img src="https://img.shields.io/badge/website-docs-0ea5e9" alt="Website" /></a>
-    <a href="https://www.bilibili.com/video/BV17ygy67ETV"><img src="https://img.shields.io/badge/Bilibili-tutorial(CN)-fb7299" alt="Bilibili tutorial (Chinese)" /></a>
-    <a href="https://afdian.com/a/markeron"><img src="https://img.shields.io/badge/爱发电-赞助-946ce6" alt="Sponsor on 爱发电" /></a>
+    <a href="https://github.com/kevin-chen-2022/markeron-remote"><img src="https://img.shields.io/badge/repo-GitHub-181717?logo=github" alt="GitHub" /></a>
   </p>
-  <p><strong>Lightweight screen annotation tool</strong> (~1.5 MB) — press a hotkey (<strong>keyboard-first</strong>) to instantly draw, highlight, and annotate anywhere on your desktop. Built for demos, teaching, meetings, and screen recording.<strong>Free &amp; open source.</strong> If MarkerOn saves you time in demos, teaching, or meetings, <a href="https://afdian.com/a/markeron"><strong>sponsor on Afdian</strong></a> — every contribution helps keep the project maintained.</p>
 </div>
 
+## 简介
 
-<p align="center">
-  <img src="assets/MarkerOn_en.png" width="720" alt="MarkerOn" />
-</p>
+MarkerOn Remote 是 [MarkerOn](https://github.com/ifer47/markeron) 的分支版本，在原有的桌面屏幕标注功能之上，增加了**手机远程标注**与**桌面截图底图**能力。
 
-**Contents:** [Download](#download) · [Quick Start](#quick-start) · [Features](#features) · [Shortcuts](#keyboard-shortcuts) · [Feedback](#feedback--issues) · [Development](#development)
+- **桌面端**：全屏透明覆盖层，支持画笔、荧光笔、激光笔、箭头、矩形、椭圆、直线、橡皮、文字、印章、选择等 11 种工具，以及白板模式、穿透点击、批量编辑。
+- **手机端**：通过 WebSocket 与桌面端实时同步标注笔迹，可在手机上直接落笔标注到电脑屏幕；支持捏合平移缩放、虚拟画布、二维码连接。
+- **截图底图**：手机端一键截取桌面屏幕作为标注底层背景，无需看电脑屏幕即可精准落笔。
+- **白板同步**：桌面端切换白板模式时，手机端背景自动变为白色，保持视觉一致。
 
-## Download
+## 功能特性
 
-<p>
-  <a href="https://github.com/ifer47/markeron/releases/latest"><img src="https://img.shields.io/badge/Windows-x64-0078D4?logo=windows&logoColor=white" alt="Windows" /></a>
-  <a href="https://github.com/ifer47/markeron/releases/latest"><img src="https://img.shields.io/badge/macOS-ARM64-000000?logo=apple&logoColor=white" alt="macOS ARM64" /></a>
-  <a href="https://github.com/ifer47/markeron/releases/latest"><img src="https://img.shields.io/badge/macOS-x64-666666?logo=apple&logoColor=white" alt="macOS x64" /></a>
-  <a href="https://get.microsoft.com/installer/download/9n6623x973jv?referrer=appbadge"><img src="https://img.shields.io/badge/Microsoft_Store-MarkerOn-0078D4?logo=microsoftstore&logoColor=white" alt="Microsoft Store" /></a>
-</p>
+### 桌面标注
+- 11 种标注工具，全键盘快捷键操作
+- 白板模式（纯白背景）与屏幕标注自由切换
+- 穿透点击模式：标注可见的同时操作底层应用
+- 框选批量编辑、撤销/重做、复制白板为图片
 
-**[Download Latest Release](https://github.com/ifer47/markeron/releases/latest)** — pick the installer for your platform from the assets list. Windows also ships a **portable zip** (`*_x64_portable.zip`): extract and run — config stays under `data\` next to the exe (no AppData).
+### 手机远程标注
+- WebSocket 实时双向同步笔迹
+- 二维码扫码连接（或手动输入 WS 地址）
+- 捏合缩放、双指平移、虚拟画布扩展
+- 蓝色虚线标注边界，实时区分标注区与非标注区
+- 乐观渲染：手机落笔即时显示，无需等待桌面端回执
 
-Windows users can also install the Microsoft Store version with WinGet:
+### 截图底图
+- 手机端点击"截图"按钮 → 桌面端自动截取屏幕 → 回传手机作为标注底层
+- 再次点击"隐藏"按钮清空底图（本地操作，零延迟）
+- 截图与白板互斥：进入白板模式自动让位给白色背景
+- JPEG 压缩 + Base64 传输，平衡画质与带宽
 
-```powershell
-winget install --id 9N6623X973JV --source msstore
+## 技术栈
+
+| 层 | 技术 |
+|----|------|
+| 桌面端框架 | Tauri v2 (Rust) |
+| 前端 | Vue 3 + TypeScript + Vite + Canvas API |
+| 手机端 | Capacitor (Android) + Vue 3 |
+| 通信 | WebSocket (桌面端内置 sync server) |
+| 截屏 | Win32 BitBlt (Windows) / xcap (macOS) |
+| 图片编码 | JPEG (quality 80) + Base64 Data URL |
+
+## 项目结构
+
+```
+markeron/
+├── src/                      # Vue 前端（桌面 overlay + 设置）
+│   ├── components/           #   DrawingOverlay, MobileMirror, ToolbarWindow 等
+│   ├── composables/          #   useDrawing, useSyncDrawing, syncTransport 等
+│   ├── mobile/               #   手机端入口 (MobileApp.vue)
+│   └── utils/                #   工具函数
+├── src-tauri/                # Rust 后端
+│   └── src/                  #   clipboard(截屏), sync_server, overlay, commands 等
+├── android/                  # Capacitor Android 工程
+├── assets/                   # 图标与截图资源
+├── scripts/                  # 构建脚本 (build-portable.sh 等)
+└── index-mobile.html         # 手机端入口 HTML
 ```
 
-> Official downloads are GitHub Releases and Microsoft Store. Third-party mirrors may be outdated or repackaged.
+## 构建
 
-## Quick Start
+### 环境要求
 
-1. **Install and launch** — MarkerOn runs in the **system tray**; no window appears.
-2. **Enter annotation mode** — press <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>D</kbd> (<kbd>Command</kbd> + <kbd>Shift</kbd> + <kbd>D</kbd> on macOS).
-3. **Draw, then click through** — use number keys and <kbd>V</kbd> (Select) for tools; press <kbd>X</kbd> to interact with apps below while keeping annotations visible; press <kbd>Esc</kbd> to exit.
+- Node.js 24.15.0+ (见 `.node-version`)
+- npm 11.12.1+
+- Rust toolchain (stable)
+- Android SDK + Gradle（仅手机端需要）
 
-> **New here?** Press <kbd>Space</kbd> for the toolbar. See [Keyboard Shortcuts](#keyboard-shortcuts) for the full list.
+### 安装依赖
 
-## Features
+```bash
+npm install
+```
 
-- **Lightweight & fast** — ~1.5 MB installer (Rust + Canvas), minimal memory; runs quietly in the system tray (no extra daemons or telemetry)
-- **Annotate anywhere** — draw over any app, including the taskbar
-- **11 tools** — select, pen, highlighter, laser, arrow, rectangle, ellipse, line, eraser, text, stamp
-- **Marquee batch edit** — press <kbd>V</kbd> for Select: box/click select, group drag, <kbd>Delete</kbd> to remove
-- **Flexible toolbar** — press <kbd>Space</kbd> to toggle, or enable **always-on** in Settings; compact panel with **Expand** for full options, undo, copy, and whiteboard actions in-panel; **independent floating window** with drawing / click-through toggles
-- **Click-through mode** — interact with apps below while staying in the session; toggle via toolbar buttons, <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>X</kbd> (global), or <kbd>X</kbd> while drawing; disabled in whiteboard mode
-- **Full keyboard control** — every action has a shortcut, no menus needed
-- **Preserve drawings** — enable **Keep after exit** under Whiteboard & content to resume on re-enter
-- **Whiteboard mode** — set default entry to whiteboard, or press <kbd>W</kbd> to toggle; content rules are in **Whiteboard & content** settings
-- **Whiteboard copy** — copy the whiteboard as an image with <kbd>Ctrl</kbd>/<kbd>Command</kbd> + <kbd>C</kbd>
+### 桌面端
 
-<table>
-<tr>
-<td width="50%">
-<img src="assets/annotation-tools.png" alt="MarkerOn annotation tools" />
-</td>
-<td width="50%">
-<img src="assets/settings-panel.png" alt="Settings panel" />
-</td>
-</tr>
-</table>
+```bash
+# 开发模式
+npm run dev
 
-## Keyboard Shortcuts
+# 构建 release exe
+npm run build
 
-On **macOS**, use <kbd>Command</kbd> (⌘) in place of <kbd>Ctrl</kbd>, and <kbd>Option</kbd> (⌥) in place of <kbd>Alt</kbd>.
+# 打包便携版 zip（含 WebView2Loader.dll + markeron.portable 标记）
+npm run build:portable
+```
 
-### Global Shortcuts
+便携版产物：`src-tauri/target/release/bundle/portable/MarkerOn_<version>_x64_portable.zip`
 
-| Action | Windows | macOS |
-| :--- | :--- | :--- |
-| Toggle annotation mode | <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>D</kbd> | <kbd>Command</kbd> + <kbd>Shift</kbd> + <kbd>D</kbd> |
-| Clear all annotations | <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>C</kbd> | <kbd>Command</kbd> + <kbd>Shift</kbd> + <kbd>C</kbd> |
-| Toggle click-through mode | <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>X</kbd> | <kbd>Command</kbd> + <kbd>Shift</kbd> + <kbd>X</kbd> |
+### 手机端
 
-### Tool Switching
+```bash
+# 构建前端 + Capacitor 同步
+npm run build:mobile
 
-| Key | Tool | Key | Tool |
-| :---: | :--- | :---: | :--- |
-| <kbd>V</kbd> | Select | <kbd>5</kbd> | Ellipse |
-| <kbd>1</kbd> | Pen | <kbd>6</kbd> | Line |
-| <kbd>2</kbd> | Highlighter | <kbd>7</kbd> | Eraser |
-| <kbd>3</kbd> | Arrow | <kbd>8</kbd> | Laser |
-| <kbd>4</kbd> | Rectangle | <kbd>T</kbd> | Text |
-|  |  | <kbd>N</kbd> | Stamp |
+# 生成 debug APK
+cd android
+.\gradlew.bat assembleDebug
+```
 
-### Common Actions
+APK 产物：`android/app/build/outputs/apk/debug/app-debug.apk`
 
-| Action | Windows | macOS |
-| :--- | :--- | :--- |
-| Toolbar (toggle) | <kbd>Space</kbd> | <kbd>Space</kbd> |
-| Delete selection | <kbd>Delete</kbd> / <kbd>Backspace</kbd> | <kbd>Delete</kbd> / <kbd>Backspace</kbd> |
-| Click-through (while drawing) | <kbd>X</kbd> | <kbd>X</kbd> |
-| Cycle eraser mode (stroke / object) | <kbd>7</kbd> again while eraser selected | <kbd>7</kbd> again while eraser selected |
-| Toolbar always-on / layout | Settings → General | Settings → General |
-| Copy screen / whiteboard | <kbd>Ctrl</kbd> + <kbd>C</kbd> | <kbd>Command</kbd> + <kbd>C</kbd> |
-| Whiteboard toggle | <kbd>W</kbd> | <kbd>W</kbd> |
-| Undo / Redo | <kbd>Ctrl</kbd> + <kbd>Z</kbd> / <kbd>Y</kbd> | <kbd>Command</kbd> + <kbd>Z</kbd> / <kbd>Y</kbd> |
-| Stroke width | <kbd>Ctrl</kbd> + Scroll | <kbd>Command</kbd> + Scroll (pen, laser & shapes share; highlighter/eraser/text separate) |
-| Exit | <kbd>Esc</kbd> | <kbd>Esc</kbd> |
+### 开发模式下手机连接
 
-<details>
-<summary><strong>All shortcuts</strong></summary>
+桌面端 `npm run dev` 启动后，overlay 工具条"遥控"按钮会显示二维码。手机扫码即可连接。
 
-#### Drawing with Modifier Keys
+如需手机浏览器直接访问 Vite dev server，需让 Vite 监听局域网地址：
 
-| Draws | Windows | macOS |
-| :--- | :--- | :--- |
-| Current tool (default: pen) | Drag | Drag |
-| Line | <kbd>Alt</kbd> + Drag | <kbd>Option</kbd> + Drag |
-| Rectangle | <kbd>Ctrl</kbd> + Drag | <kbd>Command</kbd> + Drag |
-| Square | <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + Drag | <kbd>Command</kbd> + <kbd>Option</kbd> + Drag |
-| Ellipse | <kbd>Shift</kbd> + Drag | <kbd>Shift</kbd> + Drag |
-| Circle | <kbd>Shift</kbd> + <kbd>Alt</kbd> + Drag | <kbd>Shift</kbd> + <kbd>Option</kbd> + Drag |
-| Arrow | <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + Drag | <kbd>Command</kbd> + <kbd>Shift</kbd> + Drag |
+```powershell
+# PowerShell
+$env:TAURI_DEV_HOST = "192.168.x.x"; npm run dev
+```
 
-#### Edit & Move
+或修改 `vite.config.ts` 让 host 默认监听 `0.0.0.0`。
 
-| Action | Effect |
-| :--- | :--- |
-| Select tool (<kbd>V</kbd>) | Marquee or click to select; drag selection as a group; <kbd>Delete</kbd> / <kbd>Backspace</kbd> to remove; <kbd>Esc</kbd> clears selection |
-| Element dragging | In General settings: **Off** / **Hover drag** / **Hold Ctrl to drag** |
-| Double-click existing text | Re-enter **edit mode** for that text |
-| Double-click empty area in <kbd>T</kbd> mode | Create a new text input at cursor position |
+## 使用说明
 
-#### Color Switching
+### 桌面标注
+1. 启动后程序驻留系统托盘
+2. 按 `Ctrl+Shift+D` 进入标注模式
+3. 数字键 `1-8` 切换工具，`V` 选择，`T` 文字，`N` 印章
+4. `Space` 呼出工具条，`Esc` 退出
 
-| Action | Effect |
-| :--- | :--- |
-| <kbd>Q</kbd> / <kbd>E</kbd> | Previous / Next color |
-| Right-click | Hold to erase; release restores the previous tool |
+### 手机远程标注
+1. 桌面端工具条点击"遥控" → 显示二维码
+2. 手机扫码（或手动输入 WS 地址）连接
+3. 手机镜像区实时显示桌面端标注
+4. 直接在手机上落笔，笔迹同步到桌面
+5. 双指捏合缩放、平移调整视图
 
-#### Other
+### 截图底图
+1. 手机端工具条点击"截图"按钮
+2. 桌面端自动隐藏覆盖层 → 截屏 → 恢复
+3. 手机端显示桌面截图作为标注底层
+4. 再次点击"隐藏"清空底图
+5. 截图与白板互斥，进入白板自动让位
 
-| Action | Windows | macOS |
-| :--- | :--- | :--- |
-| Redo (alt) | <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>Z</kbd> | <kbd>Command</kbd> + <kbd>Shift</kbd> + <kbd>Z</kbd> |
+## 许可证
 
-</details>
+MIT License — 见 [LICENSE](./LICENSE)
 
-<details>
-<summary><strong>Advanced settings</strong></summary>
-
-In **Settings → General** (toolbar display, click-through, and stroke width — see [Features](#features)):
-
-- **Whiteboard & content** — default entry (screen / whiteboard), keep after exit, keep on <kbd>W</kbd> toggle
-- **Element dragging** — off, hover to drag, or hold <kbd>Ctrl</kbd>/<kbd>Command</kbd> to drag (disabled while eraser is selected)
-- **Eraser mode** — stroke (local erase) or object (delete whole elements); with eraser selected, press <kbd>7</kbd> again (or click the toolbar eraser again) to switch
-- **Angle snap step** — snap interval for straight lines drawn with <kbd>Alt</kbd>
-- **Auto start** — launch the app automatically at system startup
-
-</details>
-
-## Feedback & Issues
-
-- **Bug reports:** Settings → **Diagnostics** → export a report, then open a [GitHub Issue](https://github.com/ifer47/markeron/issues)
-- **Privacy:** [PRIVACY.md](./PRIVACY.md)
-
-## Development
-
-See [CONTRIBUTING.md](./CONTRIBUTING.md) for prerequisites, setup, and the full workflow. **Stack:** Tauri v2 · Vue 3 · Vite · TypeScript · Canvas API
+上游项目：[ifer47/markeron](https://github.com/ifer47/markeron)

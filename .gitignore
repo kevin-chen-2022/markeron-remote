@@ -58,3 +58,10 @@ NUL
 # Brainstorm / agent session artifacts
 .superpowers/
 .worktrees/
+
+# 纯净源码副本（本地归档用，不提交）
+最新源码/
+
+# 个人临时文件
+提示词.txt
+README_sync.md

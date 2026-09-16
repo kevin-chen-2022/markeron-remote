@@ -40,6 +40,7 @@ const props = defineProps<Props>()
 const containerRef = ref<HTMLDivElement | null>(null)
 const historyCanvasEl = ref<HTMLCanvasElement | null>(null)
 const previewCanvasEl = ref<HTMLCanvasElement | null>(null)
+const backgroundCanvasEl = ref<HTMLCanvasElement | null>(null)
 
 // 镜像区在屏幕上的实际位置与大小（CSS 像素）
 const mirrorRect = ref({ x: 0, y: 0, w: 0, h: 0 })
@@ -93,7 +94,7 @@ function applyCanvasSize() {
   const { w: dw, h: dh } = props.desktopSize
   const mirrorW = mirrorRect.value.w
   const mirrorH = mirrorRect.value.h
-  for (const c of [historyCanvasEl.value, previewCanvasEl.value]) {
+  for (const c of [backgroundCanvasEl.value, historyCanvasEl.value, previewCanvasEl.value]) {
     if (!c) continue
     // 内部坐标系 = 桌面坐标系 (0..dw, 0..dh)
     c.width = Math.round(dw)
@@ -114,6 +115,12 @@ function applyCanvasSize() {
   props.canvasRefs.preview.value = previewCanvasEl.value
   // 画布尺寸变化后，重画一次
   props.drawing.redrawAll()
+  // 画布尺寸变化会清空背景层，需按当前模式重绘：白板优先于截图
+  if (whiteboardActive) {
+    fillWhiteBackground()
+  } else if (lastScreenShotDataUrl) {
+    drawScreenShot(lastScreenShotDataUrl)
+  }
   console.log('[MobileMirror] applyCanvasSize done', { dw, dh, mirrorW, mirrorH, historyLen: props.drawing.getHistorySnapshot().length })
 }
 
@@ -272,12 +279,84 @@ function onPointerUp(e: PointerEvent) {
 // ---------- 生命周期 ----------
 let resizeObs: ResizeObserver | null = null
 
+// ---------- 截图底图渲染 ----------
+// 保存最近一张截图 data URL，画布尺寸变化时重绘
+let lastScreenShotDataUrl: string | null = null
+// 白板模式：backgroundCanvas 渲染白色而非截图。互斥语义——白板优先于截图。
+let whiteboardActive = false
+
+function fillWhiteBackground() {
+  const canvas = backgroundCanvasEl.value
+  if (!canvas) return
+  const { w: dw, h: dh } = props.desktopSize
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return
+  ctx.clearRect(0, 0, dw, dh)
+  ctx.fillStyle = '#ffffff'
+  ctx.fillRect(0, 0, dw, dh)
+}
+
+function drawScreenShot(dataUrl: string) {
+  // 白板模式下不绘制截图（互斥），但保留 dataUrl 以便退出白板后可由 applyCanvasSize 重绘
+  lastScreenShotDataUrl = dataUrl
+  if (whiteboardActive) return
+  const canvas = backgroundCanvasEl.value
+  if (!canvas) return
+  const { w: dw, h: dh } = props.desktopSize
+  const img = new Image()
+  img.onload = () => {
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    ctx.clearRect(0, 0, dw, dh)
+    ctx.drawImage(img, 0, 0, dw, dh)
+  }
+  img.onerror = (e) => {
+    console.error('[MobileMirror] screenshot image load failed', e)
+  }
+  img.src = dataUrl
+}
+
+/** 隐藏截图底图（toggle 截图按钮的"隐藏"分支调用，纯本地清空，不走 WS） */
+function clearBackground() {
+  const canvas = backgroundCanvasEl.value
+  if (!canvas) return
+  const { w: dw, h: dh } = props.desktopSize
+  const ctx = canvas.getContext('2d')
+  if (ctx) ctx.clearRect(0, 0, dw, dh)
+  lastScreenShotDataUrl = null
+}
+
+defineExpose({ clearBackground })
+
+let unlistenScreenShot: (() => void) | null = null
+let unlistenToolState: (() => void) | null = null
+
 onMounted(() => {
   computeMirrorRect()
   resizeObs = new ResizeObserver(() => computeMirrorRect())
   if (containerRef.value) resizeObs.observe(containerRef.value)
   window.addEventListener('resize', computeMirrorRect)
   window.addEventListener('orientationchange', computeMirrorRect)
+  // 订阅桌面端截屏数据
+  unlistenScreenShot = props.sync.onScreenShot((dataUrl) => {
+    drawScreenShot(dataUrl)
+  })
+  // 订阅桌面端工具状态：白板模式切换时，backgroundCanvas 渲染白色背景
+  // 互斥语义：进入白板 → 清空截图填白色；退出白板 → 清空到透明（让位给后续可能的截图）
+  unlistenToolState = props.sync.onRemoteToolState((state) => {
+    const nextActive = !!state.whiteboardMode
+    if (nextActive === whiteboardActive) return
+    whiteboardActive = nextActive
+    if (nextActive) {
+      fillWhiteBackground()
+    } else {
+      const canvas = backgroundCanvasEl.value
+      if (canvas) {
+        const { w: dw, h: dh } = props.desktopSize
+        canvas.getContext('2d')?.clearRect(0, 0, dw, dh)
+      }
+    }
+  })
 })
 
 onBeforeUnmount(() => {
@@ -285,6 +364,10 @@ onBeforeUnmount(() => {
   resizeObs = null
   window.removeEventListener('resize', computeMirrorRect)
   window.removeEventListener('orientationchange', computeMirrorRect)
+  unlistenScreenShot?.()
+  unlistenScreenShot = null
+  unlistenToolState?.()
+  unlistenToolState = null
 })
 
 watch(
@@ -379,6 +462,11 @@ const interactionLayerStyle = computed(() => {
 
 <template>
   <div ref="containerRef" :style="containerStyle">
+    <canvas ref="backgroundCanvasEl" :style="canvasLayerStyle" class="bg-canvas"></canvas>
+    <!-- 标注区域边界（蓝色虚线）：复用 canvasLayerStyle，自动跟随 transform，
+         fit 模式标示镜像区边缘，virtual 模式随画布平移/缩放，
+         即使无截图也能实时分清标注区与非标注区 -->
+    <div class="border-layer" :style="canvasLayerStyle"></div>
     <canvas ref="historyCanvasEl" :style="canvasLayerStyle"></canvas>
     <canvas ref="previewCanvasEl" :style="canvasLayerStyle"></canvas>
     <div
@@ -393,6 +481,19 @@ const interactionLayerStyle = computed(() => {
 </template>
 
 <style scoped>
+.bg-canvas {
+  z-index: 0;
+}
+
+/* 标注区域边界：在 background 之上、history 之下，
+   笔迹覆盖边框（已画区自然成为"标注区"），未画区边框清晰可见 */
+.border-layer {
+  border: 2px dashed rgba(74, 134, 232, 0.7);
+  box-sizing: border-box;
+  pointer-events: none;
+  z-index: 1;
+}
+
 .interaction-layer {
   position: absolute;
   touch-action: none;

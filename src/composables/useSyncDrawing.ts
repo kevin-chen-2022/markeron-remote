@@ -67,14 +67,20 @@ export interface SyncDrawingHandle {
   pushTogglePenetration(): void
   /** 请求桌面端切换白板模式 */
   pushToggleWhiteboard(): void
+  /** 手机端：请求桌面端截取屏幕 */
+  pushCaptureScreen(): void
+  /** 桌面端：推送截图数据回手机端 */
+  pushScreenShot(dataUrl: string): void
+  /** 手机端：注册截图数据回调（桌面端截屏后回送） */
+  onScreenShot(cb: (dataUrl: string) => void): () => void
   /** 注册远端指针事件回调（桌面端用来显示手机指针） */
   onRemotePointer(cb: (x: number, y: number, phase: 'down' | 'move' | 'up') => void): () => void
   /** 注册远端工具状态回调 */
   onRemoteToolState(cb: (state: ToolStateSync) => void): () => void
   /** 注册远端撤销/重做/清空意图回调（桌面端执行对应操作） */
   onRemoteIntent(cb: (intent: 'undo' | 'redo' | 'clear') => void): () => void
-  /** 注册远端命令回调（toggle-drawing / toggle-penetration / toggle-whiteboard，桌面端执行） */
-  onRemoteCommand(cb: (cmd: 'toggle-drawing' | 'toggle-penetration' | 'toggle-whiteboard') => void): () => void
+  /** 注册远端命令回调（toggle-drawing / toggle-penetration / toggle-whiteboard / capture-screen，桌面端执行） */
+  onRemoteCommand(cb: (cmd: 'toggle-drawing' | 'toggle-penetration' | 'toggle-whiteboard' | 'capture-screen') => void): () => void
   /** 主动断开 */
   disconnect(): void
 }
@@ -130,7 +136,8 @@ export function useSyncDrawing(
   const pointerSubs = new Set<(x: number, y: number, phase: 'down' | 'move' | 'up') => void>()
   const toolStateSubs = new Set<(state: ToolStateSync) => void>()
   const intentSubs = new Set<(intent: 'undo' | 'redo' | 'clear') => void>()
-  const commandSubs = new Set<(cmd: 'toggle-drawing' | 'toggle-penetration' | 'toggle-whiteboard') => void>()
+  const commandSubs = new Set<(cmd: 'toggle-drawing' | 'toggle-penetration' | 'toggle-whiteboard' | 'capture-screen') => void>()
+  const screenShotSubs = new Set<(dataUrl: string) => void>()
 
   /** 生成唯一请求 ID */
   function genRequestId(): string {
@@ -366,7 +373,8 @@ export function useSyncDrawing(
         }
         case 'toggle-drawing':
         case 'toggle-penetration':
-        case 'toggle-whiteboard': {
+        case 'toggle-whiteboard':
+        case 'capture-screen': {
           for (const cb of commandSubs) {
             try {
               cb(msg.type)
@@ -374,9 +382,21 @@ export function useSyncDrawing(
               console.error('[useSyncDrawing] command callback error', e)
             }
           }
-          // 桌面端回送 pong 确认，让手机端清除重试计时器
+          // 桌面端回送 pong 确认（capture-screen 不走命令重试，
+          // 但回 pong 无害且保持协议一致性）
           if (options.isDesktop) {
             void transport?.send({ type: 'pong' })
+          }
+          break
+        }
+        case 'screen-shot': {
+          // 手机端：收到桌面端截屏数据 → 通知回调渲染底图
+          for (const cb of screenShotSubs) {
+            try {
+              cb(msg.dataUrl)
+            } catch (e) {
+              console.error('[useSyncDrawing] screen-shot callback error', e)
+            }
           }
           break
         }
@@ -469,6 +489,18 @@ export function useSyncDrawing(
     },
     pushToggleWhiteboard() {
       void sendCommandWithRetry({ type: 'toggle-whiteboard' })
+    },
+    pushCaptureScreen() {
+      // 截图请求不走命令重试：桌面端会异步截屏并回送 screen-shot，
+      // 手机端通过 onScreenShot 回调接收，无需 pong 确认。
+      void transport?.send({ type: 'capture-screen' })
+    },
+    pushScreenShot(dataUrl) {
+      void transport?.send({ type: 'screen-shot', dataUrl })
+    },
+    onScreenShot(cb) {
+      screenShotSubs.add(cb)
+      return () => screenShotSubs.delete(cb)
     },
     onRemotePointer(cb) {
       pointerSubs.add(cb)

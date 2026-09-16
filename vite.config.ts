@@ -39,7 +39,9 @@ export default defineConfig({
   server: {
     port: 1420,
     strictPort: true,
-    host: host || false,
+    // 默认监听 0.0.0.0：桌面端 Tauri 走 localhost:1420 仍可用，
+    // 手机端扫码后访问局域网 IP:1420 也能打开 dev server。
+    host: host || true,
     hmr: host ? { protocol: 'ws', host, port: 1421 } : undefined,
     watch: {
       ignored: ['**/src-tauri/**'],

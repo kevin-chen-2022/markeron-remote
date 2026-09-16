@@ -258,6 +258,56 @@ function toggleWhiteboard() {
   sync.pushToggleWhiteboard()
 }
 
+// ---------- 截图功能 ----------
+// Toggle 模式：点击 → 截图显示；再点击 → 本地隐藏；再点击 → 重新截图，循环往复。
+// "隐藏"分支纯本地清空 backgroundCanvas，零延迟、不走 WS。
+const capturing = ref(false)
+const hasShot = ref(false)
+const mirrorRef = ref<{ clearBackground: () => void } | null>(null)
+let captureTimeout: ReturnType<typeof setTimeout> | null = null
+
+function toggleScreenShot() {
+  if (capturing.value) return                // 截图途中忽略
+  if (hasShot.value) {                       // 已有 → 隐藏
+    mirrorRef.value?.clearBackground()
+    hasShot.value = false
+    return
+  }
+  // 无 → 触发截图
+  capturing.value = true
+  sync.pushCaptureScreen()
+  // 安全超时：5 秒未收到响应则重置 loading 状态
+  if (captureTimeout) clearTimeout(captureTimeout)
+  captureTimeout = setTimeout(() => {
+    capturing.value = false
+    log('截图超时，未收到桌面端响应')
+  }, 5000)
+}
+
+// 监听截图到达 → 关闭 loading + 标记已显示
+onMounted(() => {
+  const stop = sync.onScreenShot(() => {
+    capturing.value = false
+    hasShot.value = true
+    if (captureTimeout) {
+      clearTimeout(captureTimeout)
+      captureTimeout = null
+    }
+  })
+  cleanups.push(stop)
+})
+
+// 监听桌面端工具状态：白板模式开启时，截图被白板背景覆盖，
+// 同步复位 hasShot 让按钮回到"截图"文字，避免按钮显示与实际不符
+onMounted(() => {
+  const stop = sync.onRemoteToolState((state) => {
+    if (state.whiteboardMode && hasShot.value) {
+      hasShot.value = false
+    }
+  })
+  cleanups.push(stop)
+})
+
 // 工具栏折叠
 const toolbarExpanded = ref(true)
 function toggleToolbar() {
@@ -412,6 +462,7 @@ function refreshPage() {
     <main class="mirror-area" :class="{ 'virtual-mode': screenMode === 'virtual' }">
       <MobileMirror
         v-if="connState === 'connected' && remoteDesktopSize && hasInitialState"
+        ref="mirrorRef"
         :drawing="drawing"
         :sync="sync"
         :desktop-size="remoteDesktopSize"
@@ -436,6 +487,9 @@ function refreshPage() {
         <button class="cmd-btn" @click="togglePenetration">穿透</button>
         <button class="cmd-btn danger" @click="clearRemote">清除</button>
         <button class="cmd-btn" @click="undoRemote">撤销</button>
+        <button class="cmd-btn" :disabled="capturing" @click="toggleScreenShot">
+          {{ capturing ? '截图中…' : (hasShot ? '隐藏' : '截图') }}
+        </button>
         <button class="cmd-btn" :data-active="screenMode === 'virtual'" @click="toggleScreenMode">
           {{ screenMode === 'fit' ? '全屏' : '虚拟' }}
         </button>
@@ -475,11 +529,13 @@ function refreshPage() {
     </footer>
 
     <!-- 调试日志面板（右上角折叠按钮 + 半透明浮层）-->
-    <button class="refresh-btn" @click="refreshPage">刷新</button>
-    <button
-      class="debug-toggle"
-      @click="showDebug = !showDebug"
-    >{{ showDebug ? '_hide' : 'log' }}</button>
+    <div class="top-right-actions">
+      <button class="refresh-btn" @click="refreshPage">刷新</button>
+      <button
+        class="debug-toggle"
+        @click="showDebug = !showDebug"
+      >{{ showDebug ? '_hide' : 'log' }}</button>
+    </div>
     <div v-if="showDebug" class="debug-panel">
       <button class="debug-copy" @click="copyLogs">复制全部</button>
       <div
@@ -644,6 +700,10 @@ function refreshPage() {
 .cmd-btn:active {
   background: #555;
 }
+.cmd-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
 .cmd-btn.danger {
   background: #c62828;
 }
@@ -692,33 +752,41 @@ function refreshPage() {
   background: #4a86e8;
 }
 
-.debug-toggle {
+/* 右上角按钮组：高度与 status-bar (28px) 对齐，底边刚好压在蓝色虚线之上 */
+.top-right-actions {
   position: fixed;
-  top: 8px;
+  top: 0;
   right: 8px;
+  height: 28px;
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
   z-index: 9999;
-  background: rgba(0, 0, 0, 0.7);
-  color: #0f0;
-  border: 1px solid #555;
-  border-radius: 4px;
-  padding: 4px 8px;
-  font-size: 11px;
-  font-family: monospace;
 }
 
-.refresh-btn {
-  position: fixed;
-  top: 8px;
-  right: 48px;
-  z-index: 9999;
+.refresh-btn,
+.debug-toggle {
+  height: 100%;
+  box-sizing: border-box;
+  padding: 0 8px;
+  margin: 0;
   background: rgba(0, 0, 0, 0.7);
-  color: #4a9eff;
   border: 1px solid #555;
   border-radius: 4px;
-  padding: 4px 8px;
   font-size: 11px;
   font-family: monospace;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.refresh-btn {
+  color: #4a9eff;
+}
+
+.debug-toggle {
+  color: #0f0;
 }
 
 .scan-btn {
