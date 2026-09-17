@@ -12,6 +12,9 @@ import type { DrawAction, Tool } from './drawingTypes'
 
 // ---------- 协议消息类型 ----------
 
+/** 桌面端 overlay 模式，同步给手机端用于按钮红点显示和提示 */
+export type OverlayModeSync = 'hidden' | 'drawing' | 'penetration'
+
 /** 当前活动工具/颜色等元状态 —— 等价于 overlayBridge 的 OverlayStateSync */
 export interface ToolStateSync {
   currentTool: Tool
@@ -38,6 +41,7 @@ export type SyncMessage =
   | { type: 'toggle-whiteboard' }
   | { type: 'capture-screen' }
   | { type: 'screen-shot'; dataUrl: string }
+  | { type: 'overlay-mode'; mode: OverlayModeSync }
   | { type: 'ping' }
   | { type: 'pong' }
 

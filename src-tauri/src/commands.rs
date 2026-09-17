@@ -244,8 +244,15 @@ pub fn exit_drawing(app: AppHandle, state: tauri::State<'_, AppState>) {
 }
 
 #[tauri::command]
-pub fn toggle_drawing(app: AppHandle) {
-    crate::toggle_drawing(&app);
+pub async fn toggle_drawing(app: AppHandle) {
+    // 必须用 async + spawn_blocking：activate_drawing 中的 window.show() 需要
+    // 主线程处理，同步命令会阻塞 IPC 响应线程导致死锁（首次从 Hidden 激活时
+    // WebView2 首次渲染 + IPC 响应互相等待）
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::toggle_drawing(&app);
+    })
+    .await
+    .ok();
 }
 
 #[tauri::command]
@@ -259,8 +266,12 @@ pub fn exit_penetration_mode(app: AppHandle, state: tauri::State<'_, AppState>) 
 }
 
 #[tauri::command]
-pub fn toggle_penetration_mode(app: AppHandle, state: tauri::State<'_, AppState>) {
-    crate::toggle_penetration_mode(&app, &state);
+pub async fn toggle_penetration_mode(app: AppHandle) {
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::toggle_penetration_mode(&app);
+    })
+    .await
+    .ok();
 }
 
 #[tauri::command]

@@ -4,6 +4,7 @@ import {
   type SyncMessage,
   type SyncTransport,
   type SyncConnectionState,
+  type OverlayModeSync,
   type ToolStateSync,
 } from './syncTransport'
 import type { DrawAction } from './drawingTypes'
@@ -51,6 +52,8 @@ export interface SyncDrawingHandle {
   remoteDesktopSize: Ref<{ w: number; h: number } | null>
   /** 桌面端：启动 sync_server 后的连接信息（ws_url / lan_ip / port）；手机端为 null */
   serverInfo: Ref<{ wsUrl: string; lanIp: string; port: number } | null>
+  /** 手机端：远端桌面 overlay 模式（hidden/drawing/penetration） */
+  remoteOverlayMode: Ref<OverlayModeSync>
   /** 推送当前工具元状态到对端 */
   pushToolState(state: ToolStateSync): void
   /** 推送指针位置（手机触摸时把坐标发给桌面，便于在桌面端做"指针预览"） */
@@ -73,6 +76,10 @@ export interface SyncDrawingHandle {
   pushScreenShot(dataUrl: string): void
   /** 手机端：注册截图数据回调（桌面端截屏后回送） */
   onScreenShot(cb: (dataUrl: string) => void): () => void
+  /** 桌面端：推送当前 overlay 模式给手机端（hidden/drawing/penetration） */
+  pushOverlayMode(mode: OverlayModeSync): void
+  /** 手机端：注册 overlay 模式回调（桌面端模式变化时通知） */
+  onRemoteOverlayMode(cb: (mode: OverlayModeSync) => void): () => void
   /** 注册远端指针事件回调（桌面端用来显示手机指针） */
   onRemotePointer(cb: (x: number, y: number, phase: 'down' | 'move' | 'up') => void): () => void
   /** 注册远端工具状态回调 */
@@ -81,6 +88,8 @@ export interface SyncDrawingHandle {
   onRemoteIntent(cb: (intent: 'undo' | 'redo' | 'clear') => void): () => void
   /** 注册远端命令回调（toggle-drawing / toggle-penetration / toggle-whiteboard / capture-screen，桌面端执行） */
   onRemoteCommand(cb: (cmd: 'toggle-drawing' | 'toggle-penetration' | 'toggle-whiteboard' | 'capture-screen') => void): () => void
+  /** 桌面端：注册手机端握手完成回调（用于推送当前完整状态：overlay-mode + tool-state） */
+  onClientSynced(cb: () => void): () => void
   /** 主动断开 */
   disconnect(): void
 }
@@ -120,6 +129,8 @@ export function useSyncDrawing(
     subscribeHistoryChange: (cb: () => void) => () => void
     /** 当前是否正在本地绘制（乐观渲染中）。手机端正在画时跳过远端 snapshot 应用，避免打断 */
     isDrawing?: () => boolean
+    /** 桌面端 overlay 是否处于非 Hidden 模式。Hidden 时跳过远端笔迹应用，避免卡死 */
+    isOverlayActive?: () => boolean
   },
   options: UseSyncDrawingOptions,
 ): SyncDrawingHandle {
@@ -138,6 +149,11 @@ export function useSyncDrawing(
   const intentSubs = new Set<(intent: 'undo' | 'redo' | 'clear') => void>()
   const commandSubs = new Set<(cmd: 'toggle-drawing' | 'toggle-penetration' | 'toggle-whiteboard' | 'capture-screen') => void>()
   const screenShotSubs = new Set<(dataUrl: string) => void>()
+  const overlayModeSubs = new Set<(mode: OverlayModeSync) => void>()
+  /** 桌面端：手机端握手完成时触发，用于推送完整状态 */
+  const clientSyncedSubs = new Set<() => void>()
+  /** 手机端可读取的远端 overlay 模式（桌面端为权威方） */
+  const remoteOverlayMode = shallowRef<OverlayModeSync>('hidden')
 
   /** 生成唯一请求 ID */
   function genRequestId(): string {
@@ -400,6 +416,18 @@ export function useSyncDrawing(
           }
           break
         }
+        case 'overlay-mode': {
+          // 手机端：收到桌面端 overlay 模式变化 → 通知回调 + 更新 ref
+          remoteOverlayMode.value = msg.mode
+          for (const cb of overlayModeSubs) {
+            try {
+              cb(msg.mode)
+            } catch (e) {
+              console.error('[useSyncDrawing] overlay-mode callback error', e)
+            }
+          }
+          break
+        }
         case 'pong': {
           // 手机端收到桌面端确认 → 清除所有待重试命令
           for (const [, entry] of pendingCommands) {
@@ -431,6 +459,15 @@ export function useSyncDrawing(
               type: 'welcome',
               desktopSize: options.desktopSize.value,
             })
+            // 通知桌面端推送当前 overlay 模式和工具状态，
+            // 确保手机端重连后按钮红点/提示与桌面端完全一致
+            for (const cb of clientSyncedSubs) {
+              try {
+                cb()
+              } catch (e) {
+                console.error('[useSyncDrawing] client-synced callback error', e)
+              }
+            }
           }
           break
         }
@@ -466,6 +503,7 @@ export function useSyncDrawing(
     hasInitialState,
     remoteDesktopSize,
     serverInfo,
+    remoteOverlayMode,
     pushToolState(state) {
       void transport?.send({ type: 'tool-state', state })
     },
@@ -502,6 +540,13 @@ export function useSyncDrawing(
       screenShotSubs.add(cb)
       return () => screenShotSubs.delete(cb)
     },
+    pushOverlayMode(mode) {
+      void transport?.send({ type: 'overlay-mode', mode })
+    },
+    onRemoteOverlayMode(cb) {
+      overlayModeSubs.add(cb)
+      return () => overlayModeSubs.delete(cb)
+    },
     onRemotePointer(cb) {
       pointerSubs.add(cb)
       return () => pointerSubs.delete(cb)
@@ -517,6 +562,10 @@ export function useSyncDrawing(
     onRemoteCommand(cb) {
       commandSubs.add(cb)
       return () => commandSubs.delete(cb)
+    },
+    onClientSynced(cb) {
+      clientSyncedSubs.add(cb)
+      return () => clientSyncedSubs.delete(cb)
     },
     disconnect() {
       transport?.disconnect()

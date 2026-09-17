@@ -5,6 +5,7 @@ import { listen, emit, type UnlistenFn } from '@tauri-apps/api/event'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { useDrawing, type Tool, type DrawAction } from '../composables/useDrawing'
 import { useSyncDrawing } from '../composables/useSyncDrawing'
+import type { OverlayModeSync } from '../composables/syncTransport'
 import type { TextOutlineStyle } from '../composables/drawingTypes'
 import { useTooltip } from '../composables/useTooltip'
 import {
@@ -365,6 +366,7 @@ const syncHandle = useSyncDrawing(
     getHistorySnapshot: drawing.getHistorySnapshot,
     applyHistorySnapshot: drawing.applyHistorySnapshot,
     subscribeHistoryChange: drawing.subscribeHistoryChange,
+    isOverlayActive: () => active.value,
   },
   { desktopSize, isDesktop: true },
 )
@@ -416,12 +418,21 @@ syncHandle.onRemoteCommand(async (cmd) => {
     console.log('[DrawingOverlay] remote command received:', cmd)
     if (cmd === 'toggle-drawing') {
       console.log('[DrawingOverlay] invoking toggle_drawing...')
-      const res = await invoke('toggle_drawing')
-      console.log('[DrawingOverlay] toggle_drawing resolved:', res)
+      // 不 await：首次从 Hidden 模式激活时，WebView2 首次渲染会阻塞 IPC 响应，
+      // 导致 Promise 永不 resolve。fire-and-forget 避免 await 挂起，
+      // Rust 端 toggle_drawing 仍会执行，overlay-mode-changed 事件会正常触发
+      void invoke('toggle_drawing').then((res) => {
+        console.log('[DrawingOverlay] toggle_drawing resolved:', res)
+      }).catch((e) => {
+        console.error('[DrawingOverlay] toggle_drawing failed:', e)
+      })
     } else if (cmd === 'toggle-penetration') {
       console.log('[DrawingOverlay] invoking toggle_penetration_mode...')
-      const res = await invoke('toggle_penetration_mode')
-      console.log('[DrawingOverlay] toggle_penetration_mode resolved:', res)
+      void invoke('toggle_penetration_mode').then((res) => {
+        console.log('[DrawingOverlay] toggle_penetration_mode resolved:', res)
+      }).catch((e) => {
+        console.error('[DrawingOverlay] toggle_penetration_mode failed:', e)
+      })
     } else if (cmd === 'toggle-whiteboard') {
       await toggleWhiteboardFromToolbar()
     } else if (cmd === 'capture-screen') {
@@ -438,6 +449,24 @@ syncHandle.onRemoteCommand(async (cmd) => {
 // 测试便利：把桌面端 sync_server 的连接信息挂到 window，
 // DevTools 里直接 `window.__markerSync` 就能拿到手机端访问 URL。
 ;(window as any).__markerSync = syncHandle
+
+// 手机端握手完成（hello 收到）时，推送当前完整状态：
+// overlay 模式（hidden/drawing/penetration）+ 工具状态（tool/color/width/whiteboard），
+// 确保手机端连接或重连后按钮红点/提示与桌面端完全一致
+syncHandle.onClientSynced(() => {
+  const mode: OverlayModeSync = penetrationMode.value
+    ? 'penetration'
+    : active.value
+      ? 'drawing'
+      : 'hidden'
+  syncHandle.pushOverlayMode(mode)
+  syncHandle.pushToolState({
+    currentTool: currentTool.value,
+    currentColor: currentColor.value,
+    lineWidth: lineWidth.value,
+    whiteboardMode: whiteboardMode.value,
+  })
+})
 
 // ---------- 二维码弹窗 ----------
 const showQrModal = ref(false)
@@ -2294,6 +2323,8 @@ onMounted(async () => {
         clearSelection()
       }
       syncOverlayStateToToolbar()
+      // 推送当前 overlay 模式给手机端，让按钮红点和提示与桌面端一致
+      syncHandle.pushOverlayMode(mode)
     }),
   )
 

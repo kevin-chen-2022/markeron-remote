@@ -1,0 +1,1 @@
+var e=[`off`,`standard`,`strong`],t=`standard`;function n(e){let n=e?.strokeSmoothing;return n===`off`||n===`standard`||n===`strong`?n:t}export{n,e as t};

@@ -292,6 +292,15 @@ pub fn run() {
 
             setup_overlay_size(&handle);
 
+            // 预热 WebView2：首次 show 触发渲染初始化，然后立即 hide。
+            // 避免 invoke('toggle_drawing') 时首次渲染阻塞 IPC 线程导致卡死。
+            // 需要短暂等待让 WebView2 完成首次渲染，否则 show/hide 太快无效。
+            if let Some(window) = handle.get_webview_window("overlay") {
+                window.show().ok();
+                std::thread::sleep(std::time::Duration::from_millis(100));
+                window.hide().ok();
+            }
+
             #[cfg(target_os = "macos")]
             macos::configure_overlay_window(&handle);
 

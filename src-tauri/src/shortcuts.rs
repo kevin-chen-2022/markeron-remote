@@ -122,7 +122,7 @@ pub fn register_shortcuts(app: &AppHandle) {
                         Some(serde_json::json!({ "reason": "global-shortcut" })),
                         "info",
                     );
-                    crate::toggle_penetration_mode(app, &state);
+                    crate::toggle_penetration_mode(app);
                 }
             })
         {

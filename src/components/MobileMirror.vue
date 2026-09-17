@@ -160,31 +160,35 @@ function eventToDesktopPoint(e: PointerEvent | Touch): Point {
 
 let drawingNow = false
 
-// pointer 推送节流：手机触摸事件可达 120Hz，限制到 60fps 减少 WS 消息量
+// pointer 推送节流：手机触摸事件可达 120Hz，限制到 30fps 减少 WS 消息量。
+// 用 setTimeout 而非 rAF：桌面端 Hidden 模式下 overlay 窗口被 hide()，
+// WebView2 可能降频或暂停 rAF，导致 pointermove 堆积卡死。
+// setTimeout 不依赖渲染管线，在任何模式下都稳定调度。
 let pendingPointerMove: { x: number; y: number } | null = null
-let pointerMoveTimer: ReturnType<typeof requestAnimationFrame> | null = null
+let pointerMoveTimer: ReturnType<typeof setTimeout> | null = null
+const POINTER_MOVE_THROTTLE_MS = 33 // ~30fps
 
 function throttledPushPointer(x: number, y: number, phase: 'down' | 'move' | 'up') {
   if (phase !== 'move') {
     if (pointerMoveTimer !== null) {
-      cancelAnimationFrame(pointerMoveTimer)
+      clearTimeout(pointerMoveTimer)
       pointerMoveTimer = null
     }
     pendingPointerMove = null
     props.sync.pushPointer(x, y, phase)
     return
   }
-  // move: 用 rAF 节流到每帧最多一次
+  // move: 用 setTimeout 节流到 33ms 间隔
   pendingPointerMove = { x, y }
   if (pointerMoveTimer !== null) return
-  pointerMoveTimer = requestAnimationFrame(() => {
+  pointerMoveTimer = setTimeout(() => {
     pointerMoveTimer = null
     if (pendingPointerMove) {
       const p = pendingPointerMove
       pendingPointerMove = null
       props.sync.pushPointer(p.x, p.y, 'move')
     }
-  })
+  }, POINTER_MOVE_THROTTLE_MS)
 }
 
 // 虚拟模式手势状态

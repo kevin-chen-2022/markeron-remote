@@ -132,6 +132,7 @@ const sync = useSyncDrawing(
 const connState = sync.connectionState
 const hasInitialState = sync.hasInitialState
 const remoteDesktopSize = sync.remoteDesktopSize
+const remoteOverlayMode = sync.remoteOverlayMode
 
 const cleanups: Array<() => void> = []
 
@@ -164,6 +165,7 @@ const colors = ['#FF0000', '#FFFF00', '#00C853', '#2196F3', '#FFFFFF', '#000000'
 const activeColor = ref(colors[0])
 const activeWidth = ref(4)
 const activeTool = ref<'pen' | 'highlighter' | 'laser' | 'eraser'>('pen')
+const whiteboardActive = ref(false)
 
 function selectColor(c: string) {
   activeColor.value = c
@@ -247,6 +249,8 @@ function clearRemote() {
 }
 
 function toggleDrawing() {
+  // 手机端【标注】按钮：发送 toggle-drawing 命令给桌面端
+  // 桌面端收到后：Hidden → activate_drawing；Drawing/Penetration → deactivate_drawing
   sync.pushToggleDrawing()
 }
 
@@ -301,6 +305,7 @@ onMounted(() => {
 // 同步复位 hasShot 让按钮回到"截图"文字，避免按钮显示与实际不符
 onMounted(() => {
   const stop = sync.onRemoteToolState((state) => {
+    whiteboardActive.value = !!state.whiteboardMode
     if (state.whiteboardMode && hasShot.value) {
       hasShot.value = false
     }
@@ -457,6 +462,9 @@ function refreshPage() {
       <span v-if="connState === 'connected' && !hasInitialState" class="syncing-hint">
         同步中…
       </span>
+      <span v-if="connState === 'connected' && hasInitialState && remoteOverlayMode === 'hidden'" class="hidden-mode-hint">
+        未进入标注模式
+      </span>
     </header>
 
     <main class="mirror-area" :class="{ 'virtual-mode': screenMode === 'virtual' }">
@@ -482,9 +490,18 @@ function refreshPage() {
     <footer class="tool-bar">
       <!-- 顶部快捷命令行（始终可见） -->
       <div class="row commands">
-        <button class="cmd-btn" @click="toggleWhiteboard">白板</button>
-        <button class="cmd-btn" @click="toggleDrawing">标注</button>
-        <button class="cmd-btn" @click="togglePenetration">穿透</button>
+        <button class="cmd-btn" :class="{ 'has-dot': remoteOverlayMode !== 'hidden' && whiteboardActive }" @click="toggleWhiteboard">
+          白板
+          <span v-if="whiteboardActive" class="dot"></span>
+        </button>
+        <button class="cmd-btn" :class="{ 'has-dot': remoteOverlayMode === 'drawing' }" @click="toggleDrawing">
+          标注
+          <span v-if="remoteOverlayMode === 'drawing'" class="dot"></span>
+        </button>
+        <button class="cmd-btn" :class="{ 'has-dot': remoteOverlayMode === 'penetration' }" @click="togglePenetration">
+          穿透
+          <span v-if="remoteOverlayMode === 'penetration'" class="dot"></span>
+        </button>
         <button class="cmd-btn danger" @click="clearRemote">清除</button>
         <button class="cmd-btn" @click="undoRemote">撤销</button>
         <button class="cmd-btn" :disabled="capturing" @click="toggleScreenShot">
@@ -642,6 +659,12 @@ function refreshPage() {
   border-bottom: 2px dashed #555;
 }
 
+.hidden-mode-hint {
+  color: #f59e0b;
+  font-size: 12px;
+  margin-left: 4px;
+}
+
 .mirror-area.virtual-mode {
   background: #0a0a0a;
   border-color: #4a86e8;
@@ -696,6 +719,17 @@ function refreshPage() {
   border: none;
   border-radius: 8px;
   font-size: 14px;
+  position: relative;
+}
+.cmd-btn .dot {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #f44336;
+  box-shadow: 0 0 4px rgba(244, 67, 54, 0.8);
 }
 .cmd-btn:active {
   background: #555;

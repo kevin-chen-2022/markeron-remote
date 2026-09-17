@@ -699,10 +699,11 @@ pub fn exit_penetration_mode(app: &AppHandle, state: &AppState) {
     emit_mode(app, OverlayMode::Drawing);
 }
 
-pub fn toggle_penetration_mode(app: &AppHandle, state: &AppState) {
-    match current_mode(state) {
-        OverlayMode::Drawing => enter_penetration_mode(app, state),
-        OverlayMode::Penetration => exit_penetration_mode(app, state),
+pub fn toggle_penetration_mode(app: &AppHandle) {
+    let state = app.state::<AppState>();
+    match current_mode(&state) {
+        OverlayMode::Drawing => enter_penetration_mode(app, &state),
+        OverlayMode::Penetration => exit_penetration_mode(app, &state),
         OverlayMode::Hidden => {}
     }
 }
